@@ -1,7 +1,8 @@
 import pygame
-from pygame.locals import *
 from random import choice
 import os
+from pygame.locals import *
+from queue import PriorityQueue
 
 
 class Cell(pygame.sprite.Sprite):
@@ -74,13 +75,83 @@ class Maze:
                 if stack:
                     cur = stack.pop()
 
+    def neighbors(self, cell):
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        nbs = []
+        for dx, dy in directions:
+            nx, ny = cell.x + dx, cell.y + dy
+            if 0 <= nx < self.w and 0 <= ny < self.h and not isinstance(self.get(nx, ny), Wall):
+                nbs.append(self.get(nx, ny))
+        return nbs
 
-WINSIZE = (Cell.w * 41, Cell.h * 41)
+
+def heuristic(a, b):
+    return abs(a.x - b.x) + abs(a.y - b.y)
+
+
+def a_star_search(maze, start, goal):
+    frontier = PriorityQueue()
+    start_coords = (start.x, start.y)
+    goal_coords = (goal.x, goal.y)
+    frontier.put((0, start_coords))
+    came_from = {}
+    cost_so_far = {}
+    came_from[start_coords] = None
+    cost_so_far[start_coords] = 0
+
+    while not frontier.empty():
+        current_priority, current_coords = frontier.get()
+        current = maze.get(*current_coords)
+
+        if current_coords == goal_coords:
+            break
+
+        for next in maze.neighbors(current):
+            next_coords = (next.x, next.y)
+            new_cost = cost_so_far[current_coords] + \
+                1
+            if next_coords not in cost_so_far or new_cost < cost_so_far[next_coords]:
+                cost_so_far[next_coords] = new_cost
+                priority = new_cost + heuristic(goal, next)
+                frontier.put((priority, next_coords))
+                came_from[next_coords] = current_coords
+
+    return came_from
+
+
+def reconstruct_path(came_from, start, goal, maze):
+    current = (goal.x, goal.y)
+    start_coords = (start.x, start.y)
+    path = []
+    while current != start_coords:
+        x, y = current
+        path.append(maze.get(x, y))
+        current = came_from.get(current)
+        if current is None:
+            break
+    path.append(start)
+    path.reverse()
+    return path
+
+
+def draw_path(screen, path):
+    for node in path:
+        pygame.draw.rect(screen, (0, 255, 0),
+                         (node.rect.x, node.rect.y, Cell.w, Cell.h))
 
 
 def draw_maze(screen):
     maze = Maze(WINSIZE)
     maze.generate(screen, True)
+    start = maze.get(1, 1)
+    goal = maze.get(maze.w - 2, maze.h - 2)
+    came_from = a_star_search(maze, start, goal)
+    path = reconstruct_path(came_from, start, goal, maze)
+
+    draw_path(screen, path)
+
+
+WINSIZE = (Cell.w * 41, Cell.h * 41)
 
 
 def main():
@@ -89,20 +160,20 @@ def main():
     os.environ['SDL_VIDEO_WINDOW_POS'] = '{}, {}'.format(scr_inf.current_w // 2 - WINSIZE[0] // 2,
                                                          scr_inf.current_h // 2 - WINSIZE[1] // 2)
     screen = pygame.display.set_mode(WINSIZE)
-    pygame.display.set_caption('Maze')
+    pygame.display.set_caption('Maze with A* Pathfinding')
     screen.fill((0, 0, 0))
 
     clock = pygame.time.Clock()
     draw_maze(screen)
 
-    done = 0
+    done = False
     while not done:
         for e in pygame.event.get():
             if e.type == QUIT or (e.type == KEYUP and e.key == K_ESCAPE):
-                done = 1
+                done = True
 
         pygame.display.update()
-        clock.tick()
+        clock.tick(60)
 
 
 if __name__ == '__main__':
