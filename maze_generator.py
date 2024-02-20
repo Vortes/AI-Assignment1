@@ -85,31 +85,47 @@ class Maze:
         return nbs
 
 
+# Manhattan distance
 def heuristic(a, b):
     return abs(a.x - b.x) + abs(a.y - b.y)
 
 
+# For each neighbor of the current node:
+# Calculate its coordinates.
+# Determine the new path cost to reach this neighbor (current cost to reach the current node + 1)
+# If the neighbor has not been visited or the new cost is lower than a previously recorded cost, update cost_so_far and came_from for the neighbor.
 def a_star_search(maze, start, goal):
     frontier = PriorityQueue()
     start_coords = (start.x, start.y)
     goal_coords = (goal.x, goal.y)
+    # heap has structure of (priority, coords)
     frontier.put((0, start_coords))
     came_from = {}
+    # I need to create an explicit closed list.
+    # rn I'm using cost_so_far to retrace my steps
     cost_so_far = {}
+    # came_from is a dictionary that maps a node to the parent node
     came_from[start_coords] = None
     cost_so_far[start_coords] = 0
 
     while not frontier.empty():
         current_priority, current_coords = frontier.get()
+        # unpacking the tuple current_coords into maze
         current = maze.get(*current_coords)
+        print(current)
 
         if current_coords == goal_coords:
             break
 
+        """
+        1. Iterate through the neighbors of the current node.
+        2. For each neighbor, calculate its coordinates.
+        3. Determine the new path cost to reach this neighbor (current cost to reach the current node + 1)
+        4. if the neighbor has not been visited or the new cost is lower, update the open list to include the neighbor
+        """
         for next in maze.neighbors(current):
             next_coords = (next.x, next.y)
-            new_cost = cost_so_far[current_coords] + \
-                1
+            new_cost = cost_so_far[current_coords] + 1
             if next_coords not in cost_so_far or new_cost < cost_so_far[next_coords]:
                 cost_so_far[next_coords] = new_cost
                 priority = new_cost + heuristic(goal, next)
@@ -117,6 +133,12 @@ def a_star_search(maze, start, goal):
                 came_from[next_coords] = current_coords
 
     return came_from
+
+
+"""
+from the "closed list" (came_from) I can reconstruct the path from the start to the goal 
+by following the parent pointers from the goal to the start.
+"""
 
 
 def reconstruct_path(came_from, start, goal, maze):
