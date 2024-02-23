@@ -3,10 +3,14 @@ from random import choice
 import os
 from pygame.locals import *
 from queue import PriorityQueue
+import heapq
+import random
+import string
+import copy
 
 
 class Cell(pygame.sprite.Sprite):
-    w, h = 16, 16
+    w, h = 32, 32
 
     def __init__(self, x, y, maze):
         pygame.sprite.Sprite.__init__(self)
@@ -22,6 +26,7 @@ class Cell(pygame.sprite.Sprite):
         self.maze = maze
         self.nbs = [(x + nx, y + ny) for nx, ny in ((-2, 0), (0, -2), (2, 0), (0, 2))
                     if 0 <= x + nx < maze.w and 0 <= y + ny < maze.h]
+        self.name = ''.join(random.choice(string.ascii_letters) for i in range(10))
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
@@ -33,6 +38,11 @@ class Wall(Cell):
         self.image.fill((0, 0, 0))
         self.type = 0
 
+class Fog(Cell):
+    def __init__(self, x, y, maze):
+        super(Fog, self).__init__(x, y, maze)
+        self.image.fill((100, 100, 100))
+        self.type = 1
 
 class Maze:
     def __init__(self, size):
@@ -40,7 +50,7 @@ class Maze:
         self.grid = [[Wall(x, y, self) for y in range(self.h)]
                      for x in range(self.w)]
 
-    def get(self, x, y):
+    def get(self, x, y) -> Cell:
         return self.grid[x][y]
 
     def place_wall(self, x, y):
@@ -75,7 +85,7 @@ class Maze:
                 if stack:
                     cur = stack.pop()
 
-    def neighbors(self, cell):
+    def neighbors(self, cell): # returns a list of Cells
         directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
         nbs = []
         for dx, dy in directions:
@@ -86,7 +96,7 @@ class Maze:
 
 
 # Manhattan distance
-def heuristic(a, b):
+def heuristic(a: Cell, b: Cell) -> int:
     return abs(a.x - b.x) + abs(a.y - b.y)
 
 
@@ -134,12 +144,132 @@ def a_star_search(maze, start, goal):
 
     return came_from
 
+def generate_vision_maze(agent: Cell, actual_maze: Maze) -> Maze:
+    # when we start, we assume that there are no walls in the maze at all
+    vision_maze = Maze(WINSIZE)
+    vision_maze.grid = [[Fog(x, y, vision_maze) for y in range(vision_maze.h)]
+                     for x in range(vision_maze.w)]
+    # update maze with information observed by agent's initial placement
+    print("vision_maze.grid[",agent.x,"][",agent.y,"]: ", vision_maze.grid[agent.x][agent.y])
+    print("actual_maze.grid[agent.x][agent.y]: ", actual_maze.grid[agent.x][agent.y])
+    vision_maze.grid[agent.x][agent.y] = actual_maze.grid[agent.x][agent.y]
+    print("vision_maze.grid[agent.x][agent.y] after update: ", vision_maze.grid[agent.x][agent.y])
+    print("actual_maze.grid[actual_maze.w-2][actual_maze.h-2]: ", actual_maze.grid[actual_maze.w-2][actual_maze.h-2])
+    vision_maze = update_vision_maze(agent, actual_maze, vision_maze)
+    return vision_maze
+
+def update_vision_maze(agent: Cell, actual_maze: Maze, vision_maze: Maze) -> Maze:
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    for dx, dy in directions:
+        nx, ny = agent.x + dx, agent.y + dy
+        if 0 <= nx < actual_maze.w and 0 <= ny < actual_maze.h:
+            vision_maze.grid[nx][ny] = actual_maze.get(nx, ny)
+    return vision_maze
+
+def find_priority(start: Cell, goal: Cell, g: dict) -> int: # not sure if works 100%
+    # finding f value
+    f = g[(start.x, start.y)] + heuristic(start, goal)
+    # implementing tie breaking, prioritizing cells with larger g-values
+    c = start.maze.w * start.maze.h # constant bigger than any possible generated g value
+    # packing a random large number to break remaining ties
+    random_tie_breaker = random.randint(1,10**20-1)
+    priority = (f, c*f-g[(start.x, start.y)], random_tie_breaker)
+    return priority
+
+def compute_path(maze: Maze, goal: Cell, open_list: list, closed_list: list, g: dict, tree: dict, search: dict, counter: int) -> dict:
+    while g[(goal.x, goal.y)] > open_list[0][0][0]:
+        #print("g[goal]: ", g[goal])
+        #print("open_list[0][0][0]: ",  open_list[0][0][0])
+        #print("goal.name: ", goal.name)
+        #for tup in open_list:
+            #print("g: ", g[tup[1]], "h: ", heuristic(goal, tup[1]), "name: ", tup[1].name)
+        s_tuple = heapq.heappop(open_list)
+        s_coords = s_tuple[1]
+        closed_list.append(s_coords)
+        #print("neighbors: ", maze.neighbors(s))
+        for successor in maze.neighbors(maze.get(*s_coords)):
+            """REVISE CLOSED LIST SO COORDS ARE RECONSIDERED IF THE COST IS LOWER?"""
+            """MAKE THE CALCULATED PATH NOT RUN INTO KNOWN WALLS?"""
+            succ_coords = (successor.x, successor.y) 
+            if succ_coords in closed_list: continue
+            if search[succ_coords] < counter:
+                g[succ_coords] = float('inf')
+                search[succ_coords] = counter
+            if g[succ_coords] > g[s_coords] + 1:
+                g[succ_coords] = g[s_coords] + 1
+                tree[succ_coords] = s_coords
+                #if (successor.x, successor.y) == (goal.x,goal.y): # checking if we found the goal
+                #    g[goal] = g[successor]
+                #    tree[goal] = s
+                for tup in open_list:
+                    if succ_coords == tup[1]: 
+                        open_list.remove(tup)
+                        break
+                open_list.append((find_priority(successor, goal, g), succ_coords))
+                
+
+                
+
+
+def repeated_backward_a_star_search(actual_maze: Maze, vision_maze: Maze, start: Cell, goal: Cell) -> dict:
+    counter = 0 # the value of counter is i during the i-th A* search
+    search = {} # key: cell coords tup, value: i if cell c was generated last by the i-th A* search
+    g = {} # key: cell coords tup, value: int cost to get there from start cell
+    tree = {} # key: cell coords tup, value: that cell's parent cell coords tup (useful for retracing paths)
+
+    # initialize the search value of all cells to 0
+    for x in range(vision_maze.w):
+        for y in range(vision_maze.h):
+            search[(x, y)] = 0
+    for i in range(30):
+    #while (start.x,start.y) != (goal.x,goal.y):
+        print("(start.x,start.y): ", (start.x,start.y))
+        print("(goal.x,goal.y): ", (goal.x,goal.y))
+        counter += 1
+        g[(start.x, start.y)] = 0
+        search[(start.x, start.y)] = counter
+        g[(goal.x, goal.y)] = float('inf')
+        search[(goal.x, goal.y)] = counter
+        open_list = [] # list functioning as pq. highest priority at index 0. Contains tuple like ((priority tup), (cell cords tup))
+        closed_list = [] # a list of already visited cell coordinate tuples
+        heapq.heappush(open_list, (find_priority(start, goal, g), (start.x, start.y))) # put start into open list with f value as priority
+        compute_path(vision_maze, goal, open_list, closed_list, g, tree, search, counter)
+        if open_list == []:
+            print("I cannot reach the target")
+            return
+        #print(tree)
+        """
+        follow the tree pointers from goal to start and then move the agent along the resulting path from start to goal
+        until it reaches goal or one or more action costs on the path increase.
+        """
+        # *** CREATE THE PATH ***
+        path = [] # a list containing path cell coord tuples
+        path.append((goal.x, goal.y))
+        parent_coords = tree[(goal.x, goal.y)]
+        # retrace the tree list to find the path from goal to start
+        while parent_coords != (start.x, start.y):
+            path.append(parent_coords)
+            parent_coords = tree[parent_coords]
+        path.append(parent_coords)
+        path.reverse() # now the path is in order from start to goal
+
+        # *** FOLLOW PATH UNTIL OBSTACLE ***
+        # *** UPDATE VISION MAZE WITH NEW INFO ***
+        for i in range(len(path)): # assumes that path[0] is the start and thus cannot be a wall
+            agent = vision_maze.get(*path[i]) # agent will be moving along the calculated path until finding an obstacle
+            print("agent coords: ", (agent.x, agent.y))
+            vision_maze = update_vision_maze(agent, actual_maze, vision_maze)
+            if isinstance(vision_maze.get(*path[i]), Wall):
+                break
+            (start.x, start.y) = (agent.x, agent.y)
+    print("I reached the target")
+
+
 
 """
 from the "closed list" (came_from) I can reconstruct the path from the start to the goal 
 by following the parent pointers from the goal to the start.
 """
-
 
 def reconstruct_path(came_from, start, goal, maze):
     current = (goal.x, goal.y)
@@ -167,13 +297,15 @@ def draw_maze(screen):
     maze.generate(screen, True)
     start = maze.get(1, 1)
     goal = maze.get(maze.w - 2, maze.h - 2)
-    came_from = a_star_search(maze, start, goal)
-    path = reconstruct_path(came_from, start, goal, maze)
+    vision_maze = generate_vision_maze(start, maze)
+    repeated_backward_a_star_search(maze, vision_maze, start, goal)
+    
+    # came_from = a_star_search(maze, start, goal)
+    # path = reconstruct_path(came_from, start, goal, maze)
+    # draw_path(screen, path)
 
-    draw_path(screen, path)
-
-
-WINSIZE = (Cell.w * 41, Cell.h * 41)
+"""Winsize sets the dimension of the maze. Make sure it's an odd number. """
+WINSIZE = (Cell.w * 15, Cell.h * 15) 
 
 
 def main():
