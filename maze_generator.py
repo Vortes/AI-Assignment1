@@ -563,7 +563,8 @@ def main():
     command = input("What would you like to do? ")
     if command == "2":
         maze_list_experiment(screen, num_mazes)
-
+    elif command == "3":
+        forward_vs_backward(screen, num_mazes)
 
     #draw_maze(screen)
 
