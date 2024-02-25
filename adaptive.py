@@ -108,7 +108,7 @@ def heuristic(a: Cell, b: Cell) -> int:
     return abs(a.x - b.x) + abs(a.y - b.y)
 
 
-def adaptive_a_star_search(maze, start, goal):
+def adaptive_a_star_search(maze, start, goal, use_updated_heuristic=False):
     # I need to make sure that the algorithm reruns to show that its choosing more efficient paths
     open_set = PriorityQueue()
     start_coords = (start.x, start.y)
@@ -118,10 +118,10 @@ def adaptive_a_star_search(maze, start, goal):
     came_from = {}
     # I need to create an explicit closed list.
     # rn I'm using cost_so_far to retrace my steps
-    cost_so_far = {}
+    g_cost = {}
     # came_from is a dictionary that maps a node to the parent node
     came_from[start_coords] = None
-    cost_so_far[start_coords] = 0
+    g_cost[start_coords] = 0
 
     while not open_set.empty():
         current_priority, current_coords = open_set.get()
@@ -129,8 +129,10 @@ def adaptive_a_star_search(maze, start, goal):
         current = maze.get(*current_coords)
         if current_coords == goal_coords:
             # print("Goal reached!")
-            # print(cost_so_far)
-            update_all_heuristics(came_from, cost_so_far, goal, maze)
+            # print(g_cost)
+            if not use_updated_heuristic:
+                print("in here")
+                update_all_heuristics(came_from, g_cost, goal, maze)
             break
 
         """
@@ -141,12 +143,12 @@ def adaptive_a_star_search(maze, start, goal):
         """
         for next in maze.neighbors(current):
             next_coords = (next.x, next.y)
-            new_cost = cost_so_far[current_coords] + 1
-            if next_coords not in cost_so_far or new_cost < cost_so_far[next_coords]:
-                cost_so_far[next_coords] = new_cost
-                priority = new_cost + heuristic(goal, next)
+            new_cost = g_cost[current_coords] + 1
+            if next_coords not in g_cost or new_cost < g_cost[next_coords]:
+                g_cost[next_coords] = new_cost
+                priority = new_cost + \
+                    (next.h if use_updated_heuristic else heuristic(goal, next))
                 next.update_heuristic(heuristic(goal, next))
-                # print(next.h)
                 open_set.put((priority, next_coords))
                 came_from[next_coords] = current_coords
 
@@ -155,13 +157,14 @@ def adaptive_a_star_search(maze, start, goal):
 
 def update_all_heuristics(came_from, g_cost, goal, maze):
     g_goal = g_cost[(goal.x, goal.y)]
+    print("g_goal: ", g_goal)
     for coords, _ in came_from.items():
         node = maze.get(*coords)
         # print("node: ", node.h)
         # Update heuristic based on most recent search
-        print("node.h value before update: ", node.h)
+        # print("node.h value before update: ", node.h)
         node.h = g_goal - g_cost[coords]
-        print("node.h value after update: ", node.h)
+        # print("node.h value after update: ", node.h)
 
 
 def reconstruct_path(came_from, start, goal, maze):
@@ -179,10 +182,18 @@ def reconstruct_path(came_from, start, goal, maze):
     return path
 
 
-def draw_path(screen, path):
+# Default color is green, full opacity
+def draw_path(screen, path, color=(0, 255, 0), opacity=255):
+    # Create a temporary surface with per-pixel alpha
+    temp_surface = pygame.Surface((Cell.w, Cell.h), pygame.SRCALPHA)
+    # Set the color of the temporary surface, including the alpha for opacity
+    # Add the opacity value to the color tuple
+    semi_transparent_color = color + (opacity,)
+    temp_surface.fill(semi_transparent_color)
+
     for node in path:
-        pygame.draw.rect(screen, (0, 255, 0),
-                         (node.rect.x, node.rect.y, Cell.w, Cell.h))
+        # Blit the temporary surface onto the screen at the node's position
+        screen.blit(temp_surface, (node.rect.x, node.rect.y))
 
 
 def draw_maze(screen):
@@ -193,7 +204,13 @@ def draw_maze(screen):
 
     came_from = adaptive_a_star_search(maze, start, goal)
     path = reconstruct_path(came_from, start, goal, maze)
-    draw_path(screen, path)
+    draw_path(screen, path, color=(0, 255, 0))
+
+    # second run through
+    came_from_updated = adaptive_a_star_search(
+        maze, start, goal, use_updated_heuristic=True)
+    path_updated = reconstruct_path(came_from_updated, start, goal, maze)
+    draw_path(screen, path_updated, color=(255, 0, 0), opacity=60)
 
 
 """Winsize sets the dimension of the maze. Make sure it's an odd number. """
