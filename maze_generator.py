@@ -182,7 +182,7 @@ def find_priority(start: Cell, goal: Cell, g: dict, big_g_pref: bool) -> int: # 
 def compute_path(maze: Maze, goal: Cell, open_list: list, closed_list: list, g: dict, tree: dict, search: dict, counter: int, big_g_pref: bool, backward=False, agent=None) -> int:
     #try:
     if not backward:    
-        while g[(goal.x, goal.y)] > open_list[0][0][0]:
+        while open_list != [] and g[(goal.x, goal.y)] > open_list[0][0][0]:
             #print(open_list)
             s_tuple = heapq.heappop(open_list)
             s_coords = s_tuple[1]
@@ -203,7 +203,7 @@ def compute_path(maze: Maze, goal: Cell, open_list: list, closed_list: list, g: 
                     open_list.append((find_priority(successor, goal, g, big_g_pref), succ_coords))
         return len(closed_list)
     elif backward:
-        while g[(agent.x, agent.y)] > open_list[0][0][0]:
+        while open_list != [] and g[(goal.x, goal.y)] > open_list[0][0][0]:
             #print(open_list)
             s_tuple = heapq.heappop(open_list)
             s_coords = s_tuple[1]
@@ -325,7 +325,7 @@ def repeated_forward_a_star_search_experiment(screen, actual_maze: Maze, vision_
         num_expanded_cells += compute_path(vision_maze, goal, open_list, closed_list, g, tree, search, counter, big_g_pref)
         if open_list == []:
             print("I cannot reach the target")
-            return
+            return num_expanded_cells
         """
         follow the tree pointers from goal to start and then move the agent along the resulting path from start to goal
         until it reaches goal or one or more action costs on the path increase.
@@ -398,7 +398,7 @@ def repeated_backward_a_star_search_experiment(screen, actual_maze: Maze, vision
         num_expanded_cells += compute_path(vision_maze, vision_maze.get(*agent), open_list, closed_list, g, tree, search, counter, big_g_pref, True, vision_maze.get(*agent)) # start our pathfind from goal to agent
         if open_list == []:
             print("I cannot reach the target")
-            return
+            return num_expanded_cells
         """
         follow the tree pointers from goal to start and then move the agent along the resulting path from start to goal
         until it reaches goal or one or more action costs on the path increase.
@@ -496,10 +496,21 @@ def maze_list_experiment_backup(screen, maze_list):
 def maze_reset(screen, maze):
     for x in range(maze.w):
         for y in range(maze.h):
-            if isinstance(maze.grid[x][y], Cell) and screen.get_at((maze.grid[x][y].rect.x, maze.grid[x][y].rect.y)) == (0, 0, 180):
+            if isinstance(maze.grid[x][y], Cell) and screen.get_at((maze.grid[x][y].rect.x, maze.grid[x][y].rect.y)) == (0, 0, 180) or screen.get_at((maze.grid[x][y].rect.x, maze.grid[x][y].rect.y)) == (51, 153, 255):
                 pygame.draw.rect(screen, (255,255,255), (maze.grid[x][y].rect.x, maze.grid[x][y].rect.y, Cell.w, Cell.h))
                 pygame.display.update()
                 pygame.event.pump()
+
+def make_maze_unsolvable(screen, actual_maze, goal: Cell) -> Maze:
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    for dx, dy in directions:
+        nx, ny = goal.x + dx, goal.y + dy
+        if 0 <= nx < actual_maze.w and 0 <= ny < actual_maze.h and not isinstance(actual_maze.get(nx, ny), Wall):
+            actual_maze.grid[nx][ny] = Wall(nx,ny,actual_maze)
+            pygame.draw.rect(screen, (0, 0, 0), (actual_maze.grid[nx][ny].rect.x, actual_maze.grid[nx][ny].rect.y, Cell.w, Cell.h))
+            pygame.display.update()
+            pygame.event.pump()
+    return actual_maze
 
 def big_g_vs_little_g(screen, num_mazes):
     expanded_cells_list_big_g = []
@@ -538,8 +549,11 @@ def forward_vs_backward(screen, num_mazes):
         pygame.display.set_caption("Repeated Forward A*")
         maze = Maze(WINSIZE)
         maze.generate(screen, True)
+        
         start = maze.get(1,1) 
         goal = maze.get(maze.w - 2, maze.h - 2)
+        if i % 2 == 0: maze = make_maze_unsolvable(screen, maze, goal)
+
         vision_maze = generate_vision_maze(start, maze)
         expanded_cells_list_forward.append(repeated_forward_a_star_search_experiment(screen,maze,vision_maze,start,goal,big_g_pref=True))
 
@@ -564,7 +578,7 @@ def forward_vs_backward(screen, num_mazes):
 
 
 """Winsize sets the dimension of the maze. Make sure it's an odd number. """
-WINSIZE = (Cell.w * 21, Cell.h * 21) 
+WINSIZE = (Cell.w * 51, Cell.h * 51) 
 
 def main():
     pygame.init()
