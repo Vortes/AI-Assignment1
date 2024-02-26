@@ -214,12 +214,10 @@ def compute_path(maze: Maze, goal: Cell, open_list: list, closed_list: list, g: 
                     open_list.append((find_priority(successor, goal, g, big_g_pref), succ_coords))
         return len(closed_list)
     elif backward:
-        print(open_list)
-        print("len(open_list.heap):", len(open_list))
-        print("g[(goal.x,goal.y):",g[(goal.x, goal.y)])
-        print("open_list.heap[0][0][0]:",open_list[0][0][0])
+        
         while open_list != [] and g[(goal.x, goal.y)] > open_list[0][0][0]:
             #print(open_list)
+            print(open_list)
             s_tuple = heapq.heappop(open_list)
             s_coords = s_tuple[1]
             closed_list.append(s_coords)
@@ -633,7 +631,7 @@ def forward_vs_backward(screen, num_mazes):
 
 
 """Winsize sets the dimension of the maze. Make sure it's an odd number. """
-WINSIZE = (Cell.w * 9, Cell.h * 9) 
+WINSIZE = (Cell.w * 11, Cell.h * 11) 
 
 def main():
     pygame.init()

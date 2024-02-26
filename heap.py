@@ -29,11 +29,15 @@ class AwesomeHeap:
 
     def push(self, tup: tuple): # pushed tuples look like ((priority_tuple), (cell_coords_tuple))
         self.heap.append(tup)
-        tup_index = self.heap.index(tup)
-        if tup >= self.heap[(tup_index-1)//2]:
-            return
-        else:
-            self.heapify()
+        self.heapify()
+        #tup_index = self.heap.index(tup)
+        #if tup >= self.heap[(tup_index-1)//2]:
+        #    print("tup:",tup)
+        #    print("tup_index:", tup_index)
+        #    print("self.heap[(tup_index-1)//2]:",self.heap[(tup_index-1)//2])
+        #    return
+        #else:
+        #    self.heapify()
     def pop(self):
         popped_node = self.heap.pop(0)
         self.heapify()
@@ -41,11 +45,16 @@ class AwesomeHeap:
     def peek():
         return
 
-#def main():
-#    a = AwesomeHeap()
-#    a.heap = [1,4,2,3]
-#    a.heapify()
-#    print(a.heap)
-#
-#if __name__ == "__main__":
-#    main()
+def main():
+    a = AwesomeHeap()
+    a.heap = []
+    a.push((4,1))
+    a.push((4,2))
+    a.push((4,1))
+    a.push((4,1))
+    a.push((4,1))
+    #a.heapify()
+    print(a.heap)
+
+if __name__ == "__main__":
+    main()

@@ -215,19 +215,19 @@ def compute_path(maze: Maze, goal: Cell, open_list: AwesomeHeap, closed_list: li
                     open_list.heapify()
         return len(closed_list)
     elif backward:
-        print(open_list.heap)
-        print("len(open_list.heap):", len(open_list.heap))
-        print("g[(goal.x,goal.y):",g[(goal.x, goal.y)])
-        print("open_list.heap[0][0][0]:",open_list.heap[0][0][0])
+        
+       #print("len(open_list.heap):", len(open_list.heap))
+       #print("g[(goal.x,goal.y):",g[(goal.x, goal.y)])
+       #print("open_list.heap[0][0][0]:",open_list.heap[0][0][0])
         while len(open_list.heap) != 0 and g[(goal.x, goal.y)] > open_list.heap[0][0][0]:
-            
+            print(open_list.heap)
             s_tuple = open_list.pop()
-            print("s_tuple:",s_tuple)
+            #print("s_tuple:",s_tuple)
             s_coords = s_tuple[1]
             closed_list.append(s_coords)
             for successor in maze.neighbors(maze.get(*s_coords)):
                 succ_coords = (successor.x, successor.y)
-                print("succ_coords:",succ_coords)
+                #print("succ_coords:",succ_coords)
                 if succ_coords in closed_list:
                     continue
                 if search[succ_coords] < counter:
@@ -235,7 +235,7 @@ def compute_path(maze: Maze, goal: Cell, open_list: AwesomeHeap, closed_list: li
                     search[succ_coords] = counter
                 if g[succ_coords] > g[s_coords] + 1:
                     g[succ_coords] = g[s_coords] + 1
-                    print("Agent:",agent)
+                    #print("Agent:",agent)
                     tree[succ_coords] = s_coords
                     for tup in open_list.heap:
                         if succ_coords == tup[1]:
@@ -560,7 +560,7 @@ def forward_vs_backward(screen, num_mazes):
 
 
 """Winsize sets the dimension of the maze. Make sure it's an odd number. """
-WINSIZE = (Cell.w * 51, Cell.h * 51) 
+WINSIZE = (Cell.w * 11, Cell.h * 11) 
 
 def main():
     pygame.init()
