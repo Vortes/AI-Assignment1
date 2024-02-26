@@ -299,7 +299,7 @@ def main():
     screen.fill((0, 0, 0))
 
     clock = pygame.time.Clock()
-    # draw_maze(screen)
+    draw_maze(screen)
 
     num_mazes = input("How many mazes would you like to generate? ")
     # print("OK! Generating", command, "mazes...")
