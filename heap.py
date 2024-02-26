@@ -42,19 +42,13 @@ class AwesomeHeap:
         popped_node = self.heap.pop(0)
         self.heapify()
         return popped_node
-    def peek():
-        return
 
-def main():
-    a = AwesomeHeap()
-    a.heap = []
-    a.push((4,1))
-    a.push((4,2))
-    a.push((4,1))
-    a.push((4,1))
-    a.push((4,1))
-    #a.heapify()
-    print(a.heap)
-
-if __name__ == "__main__":
-    main()
+#def main():
+#    a = AwesomeHeap()
+#    a.heap = []
+#
+#    #a.heapify()
+#    print(a.heap)
+#
+#if __name__ == "__main__":
+#    main()
