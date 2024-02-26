@@ -3,10 +3,10 @@ from random import choice
 import os
 from pygame.locals import *
 from queue import PriorityQueue
-import heapq
 import random
 import string
 import pickle
+from heap import AwesomeHeap
 
 
 class Cell(pygame.sprite.Sprite):
@@ -190,12 +190,11 @@ def find_priority(start: Cell, goal: Cell, g: dict, big_g_pref: bool) -> int:  #
         priority = (f, c*f+g[(start.x, start.y)], random_tie_breaker)
     return priority
 
-def compute_path(maze: Maze, goal: Cell, open_list: list, closed_list: list, g: dict, tree: dict, search: dict, counter: int, big_g_pref: bool, backward=False, agent=None) -> int:
+def compute_path(maze: Maze, goal: Cell, open_list: AwesomeHeap, closed_list: list, g: dict, tree: dict, search: dict, counter: int, big_g_pref: bool, backward=False, agent=None) -> int:
     #try:
     if not backward:    
-        while open_list != [] and g[(goal.x, goal.y)] > open_list[0][0][0]:
-            #print(open_list)
-            s_tuple = heapq.heappop(open_list)
+        while open_list.heap != [] and g[(goal.x, goal.y)] > open_list.heap[0][0][0]:
+            s_tuple = open_list.pop()
             s_coords = s_tuple[1]
             closed_list.append(s_coords)
             for successor in maze.neighbors(maze.get(*s_coords)):
@@ -207,24 +206,28 @@ def compute_path(maze: Maze, goal: Cell, open_list: list, closed_list: list, g: 
                 if g[succ_coords] > g[s_coords] + 1:
                     g[succ_coords] = g[s_coords] + 1
                     tree[succ_coords] = s_coords
-                    for tup in open_list:
+                    for tup in open_list.heap:
                         if succ_coords == tup[1]: 
-                            open_list.remove(tup)
+                            open_list.heap.remove(tup)
+                            open_list.heapify()
                             break
-                    open_list.append((find_priority(successor, goal, g, big_g_pref), succ_coords))
+                    open_list.heap.append((find_priority(successor, goal, g, big_g_pref), succ_coords))
+                    open_list.heapify()
         return len(closed_list)
     elif backward:
-        print(open_list)
-        print("len(open_list.heap):", len(open_list))
+        print(open_list.heap)
+        print("len(open_list.heap):", len(open_list.heap))
         print("g[(goal.x,goal.y):",g[(goal.x, goal.y)])
-        print("open_list.heap[0][0][0]:",open_list[0][0][0])
-        while open_list != [] and g[(goal.x, goal.y)] > open_list[0][0][0]:
-            #print(open_list)
-            s_tuple = heapq.heappop(open_list)
+        print("open_list.heap[0][0][0]:",open_list.heap[0][0][0])
+        while len(open_list.heap) != 0 and g[(goal.x, goal.y)] > open_list.heap[0][0][0]:
+            
+            s_tuple = open_list.pop()
+            print("s_tuple:",s_tuple)
             s_coords = s_tuple[1]
             closed_list.append(s_coords)
             for successor in maze.neighbors(maze.get(*s_coords)):
                 succ_coords = (successor.x, successor.y)
+                print("succ_coords:",succ_coords)
                 if succ_coords in closed_list:
                     continue
                 if search[succ_coords] < counter:
@@ -232,97 +235,20 @@ def compute_path(maze: Maze, goal: Cell, open_list: list, closed_list: list, g: 
                     search[succ_coords] = counter
                 if g[succ_coords] > g[s_coords] + 1:
                     g[succ_coords] = g[s_coords] + 1
+                    print("Agent:",agent)
                     tree[succ_coords] = s_coords
-                    for tup in open_list:
+                    for tup in open_list.heap:
                         if succ_coords == tup[1]:
-                            open_list.remove(tup)
+                            open_list.heap.remove(tup)
+                            open_list.heapify()
                             break
-                    open_list.append(
-                        (find_priority(successor, goal, g, big_g_pref), succ_coords))
+                    open_list.heap.append((find_priority(successor, goal, g, big_g_pref), succ_coords))
+                    open_list.heapify()
         return len(closed_list)
     #except Exception as e:
     #    print("Exception", e, "occurred. Let's investigate...")
 
 
-def no_longer_in_use(screen, actual_maze: Maze, vision_maze: Maze, start: Cell, goal: Cell):
-    pygame.draw.rect(screen, (255, 0, 0), (actual_maze.get(goal.x, goal.y).rect.x, actual_maze.get(goal.x, goal.y).rect.y, Cell.w, Cell.h))
-    
-    counter = 0 # the value of counter is i during the i-th A* search
-    search = {} # key: cell coords tup, value: i if cell c was generated last by the i-th A* search
-    g = {} # key: cell coords tup, value: int cost to get there from start cell
-    tree = {} # key: cell coords tup, value: that cell's parent cell coords tup (useful for retracing paths)
-
-    # initialize the search value of all cells to 0
-    for x in range(vision_maze.w):
-        for y in range(vision_maze.h):
-            search[(x, y)] = 0
-
-    agent = (start.x, start.y)
-    while agent != (goal.x, goal.y):
-        counter += 1
-        g[agent] = 0
-        search[agent] = counter
-        g[(goal.x, goal.y)] = float('inf')
-        search[(goal.x, goal.y)] = counter
-        # list functioning as pq. highest priority at index 0. Contains tuple like ((priority tup), (cell cords tup))
-        open_list = []
-        closed_list = []  # a list of already visited cell coordinate tuples
-        # put start into open list with f value as priority
-        heapq.heappush(open_list, (find_priority(start, goal, g), agent))
-        compute_path(vision_maze, goal, open_list,
-                     closed_list, g, tree, search, counter)
-        if open_list == []:
-            print("I cannot reach the target")
-            return
-        """
-        follow the tree pointers from goal to start and then move the agent along the resulting path from start to goal
-        until it reaches goal or one or more action costs on the path increase.
-        """
-        # *** CREATE THE PATH ***
-        path = []  # a list containing path cell coord tuples
-        path.append((goal.x, goal.y))
-        parent_coords = tree[(goal.x, goal.y)]
-        # retrace the tree list to find the path from goal to start
-        while parent_coords != agent:
-            path.append(parent_coords)
-            parent_coords = tree[parent_coords]
-        path.append(parent_coords)
-        path.reverse()  # now the path is in order from start to goal
-
-        # *** FOLLOW PATH UNTIL OBSTACLE ***
-        # *** UPDATE VISION MAZE WITH NEW INFO ***
-        # assumes that path[0] is the start and thus cannot be a wall
-        for i in range(len(path)):
-            # agent will be moving along the calculated path until finding an obstacle
-            agent = vision_maze.get(*path[i])
-            if isinstance(vision_maze.get(*path[i]), Wall):
-                pygame.draw.rect(screen, (96, 96, 96), (actual_maze.get(
-                    *path[i]).rect.x, actual_maze.get(*path[i]).rect.y, Cell.w, Cell.h))  # obstacles agent ran into
-                pygame.display.update()
-                pygame.event.pump()
-                pygame.time.delay(100)
-                pygame.draw.rect(screen, (0, 0, 0), (actual_maze.get(
-                    *path[i]).rect.x, actual_maze.get(*path[i]).rect.y, Cell.w, Cell.h))  # obstacles agent ran into
-                pygame.display.update()
-                pygame.event.pump()
-                agent = vision_maze.get(*path[i-1])
-                agent = (agent.x, agent.y)
-                break
-            vision_maze = update_vision_maze(agent, actual_maze, vision_maze)
-            agent = (agent.x, agent.y)
-            pygame.draw.rect(screen, (51, 153, 255), (actual_maze.get(agent[0], agent[1]).rect.x, actual_maze.get(
-                agent[0], agent[1]).rect.y, Cell.w, Cell.h))  # current agent location
-            if i > 0:
-                pygame.draw.rect(screen, (0, 0, 180), (actual_maze.get(
-                    *path[i-1]).rect.x, actual_maze.get(*path[i-1]).rect.y, Cell.w, Cell.h))  # where has agent been
-            if path[i-1] == (start.x, start.y):
-                pygame.draw.rect(screen, (0, 255, 0), (actual_maze.get(*path[i-1]).rect.x, actual_maze.get(
-                    *path[i-1]).rect.y, Cell.w, Cell.h))  # start stays same color even if agent has been there
-
-            pygame.display.update()
-            pygame.event.pump()
-            pygame.time.delay(100)
-    print("I reached the target")
 
 # will return the number of expanded cells
 
@@ -350,11 +276,12 @@ def repeated_forward_a_star_search_experiment(screen, actual_maze: Maze, vision_
         search[agent] = counter
         g[(goal.x, goal.y)] = float('inf')
         search[(goal.x, goal.y)] = counter
-        open_list = [] # list functioning as pq. highest priority at index 0. Contains tuple like ((priority tup), (cell cords tup))
+        open_list = AwesomeHeap()
+        open_list.push((find_priority(vision_maze.get(*agent), goal, g, big_g_pref), agent)) # list functioning as pq. highest priority at index 0. Contains tuple like ((priority tup), (cell cords tup))
+        #open_list = [] 
         closed_list = [] # a list of already visited cell coordinate tuples
-        heapq.heappush(open_list, (find_priority(vision_maze.get(*agent), goal, g, big_g_pref), agent)) # put start into open list with f value as priority
         num_expanded_cells += compute_path(vision_maze, goal, open_list, closed_list, g, tree, search, counter, big_g_pref)
-        if open_list == []:
+        if open_list.heap == []:
             print("I cannot reach the target")
             return num_expanded_cells
         """
@@ -436,11 +363,11 @@ def repeated_backward_a_star_search_experiment(screen, actual_maze: Maze, vision
         search[agent] = counter
         g[(goal.x, goal.y)] = 0
         search[(goal.x, goal.y)] = counter
-        open_list = [] # list functioning as pq. highest priority at index 0. Contains tuple like ((priority tup), (cell cords tup))
+        open_list = AwesomeHeap() # list functioning as pq. highest priority at index 0. Contains tuple like ((priority tup), (cell cords tup))
         closed_list = [] # a list of already visited cell coordinate tuples
-        heapq.heappush(open_list, (find_priority(goal, vision_maze.get(*agent), g, big_g_pref), (goal.x, goal.y))) # put goal into open list with f value as priority
+        open_list.push((find_priority(goal, vision_maze.get(*agent), g, big_g_pref), (goal.x, goal.y)))
         num_expanded_cells += compute_path(vision_maze, vision_maze.get(*agent), open_list, closed_list, g, tree, search, counter, big_g_pref, True, vision_maze.get(*agent)) # start our pathfind from goal to agent
-        if open_list == []:
+        if open_list.heap == []:
             print("I cannot reach the target")
             return num_expanded_cells
         """
@@ -633,7 +560,7 @@ def forward_vs_backward(screen, num_mazes):
 
 
 """Winsize sets the dimension of the maze. Make sure it's an odd number. """
-WINSIZE = (Cell.w * 9, Cell.h * 9) 
+WINSIZE = (Cell.w * 51, Cell.h * 51) 
 
 def main():
     pygame.init()
