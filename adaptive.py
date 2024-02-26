@@ -10,7 +10,7 @@ import copy
 
 
 class Cell(pygame.sprite.Sprite):
-    w, h = 32, 32
+    w, h = 8, 8
 
     def __init__(self, x, y, maze):
         pygame.sprite.Sprite.__init__(self)
@@ -108,7 +108,7 @@ def heuristic(a: Cell, b: Cell) -> int:
     return abs(a.x - b.x) + abs(a.y - b.y)
 
 
-def adaptive_a_star_search_experiment(maze, start, goal, use_updated_heuristic=False):
+def adaptive_a_star_search_experiment(maze, start, goal, use_updated_heuristic=True):
     # I need to make sure that the algorithm reruns to show that its choosing more efficient paths
     open_set = PriorityQueue()
     start_coords = (start.x, start.y)
@@ -255,6 +255,9 @@ def adaptive_a_star_maze_experiment(screen, num_mazes):
         maze.generate(screen, True)
         start = maze.get(1, 1)
         goal = maze.get(maze.w - 2, maze.h - 2)
+        # first search
+        adaptive_a_star_search(maze, start, goal)
+        # second search
         expanded_nodes = adaptive_a_star_search_experiment(
             maze, start, goal)
 
@@ -281,7 +284,7 @@ def draw_maze(screen):
 
 
 """Winsize sets the dimension of the maze. Make sure it's an odd number. """
-WINSIZE = (Cell.w * 31, Cell.h * 31)
+WINSIZE = (Cell.w * 103, Cell.h * 103)
 
 
 def main():
@@ -294,7 +297,7 @@ def main():
     screen.fill((0, 0, 0))
 
     clock = pygame.time.Clock()
-    draw_maze(screen)
+    # draw_maze(screen)
 
     num_mazes = input("How many mazes would you like to generate? ")
     # print("OK! Generating", command, "mazes...")
