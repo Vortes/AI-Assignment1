@@ -1,3 +1,4 @@
+# made by Gabriel Ruszala 208008416, Andrew Lau 206006693, Alan Weng 198008275
 import pygame
 from random import choice
 import os
@@ -5,7 +6,6 @@ from pygame.locals import *
 from queue import PriorityQueue
 import random
 import string
-import pickle
 from heap import AwesomeHeap
 
 
@@ -220,7 +220,7 @@ def compute_path(maze: Maze, goal: Cell, open_list: AwesomeHeap, closed_list: li
        #print("g[(goal.x,goal.y):",g[(goal.x, goal.y)])
        #print("open_list.heap[0][0][0]:",open_list.heap[0][0][0])
         while len(open_list.heap) != 0 and g[(goal.x, goal.y)] > open_list.heap[0][0][0]:
-            print(open_list.heap)
+            #print(open_list.heap)
             s_tuple = open_list.pop()
             #print("s_tuple:",s_tuple)
             s_coords = s_tuple[1]
@@ -560,7 +560,7 @@ def forward_vs_backward(screen, num_mazes):
 
 
 """Winsize sets the dimension of the maze. Make sure it's an odd number. """
-WINSIZE = (Cell.w * 15, Cell.h * 15) 
+WINSIZE = (Cell.w * 103, Cell.h * 103) 
 
 def main():
     pygame.init()
