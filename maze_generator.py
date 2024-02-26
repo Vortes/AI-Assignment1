@@ -631,7 +631,7 @@ def forward_vs_backward(screen, num_mazes):
 
 
 """Winsize sets the dimension of the maze. Make sure it's an odd number. """
-WINSIZE = (Cell.w * 11, Cell.h * 11) 
+WINSIZE = (Cell.w * 15, Cell.h * 15) 
 
 def main():
     pygame.init()
